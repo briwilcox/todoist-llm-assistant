@@ -36,6 +36,14 @@ ENV/
 *.swp
 *.swo
 
+# Test / coverage artifacts
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
 # OS specific files
 .DS_Store
 Thumbs.db 
