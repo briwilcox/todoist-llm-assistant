@@ -119,6 +119,7 @@ uv run ruff check .      # lint
 uv run ruff format .     # format
 uv run mypy src          # type-check (strict)
 uv run pip-audit --ignore-vuln PYSEC-2026-196  # dependency vulnerability scan*
+uv run detect-secrets-hook --baseline .secrets.baseline $(git ls-files -- ':!uv.lock')  # secret scan
 ```
 
 The codebase is structured for testability with dependency injection:
@@ -142,6 +143,9 @@ src/todoist_assistant/
   cooldown**, so a freshly-published (potentially compromised) release is never
   resolved until it has had time to be vetted.
 - CI runs `uv lock --check`, `pip-audit`, and pins GitHub Actions by commit SHA.
+- **Secret scanning** (`detect-secrets`) runs in pre-commit and CI, blocking any
+  commit that introduces a credential. Known false-positives (template
+  placeholders, fake test keys) are allowlisted in `.secrets.baseline`.
 
 > \* `PYSEC-2026-196` is temporarily ignored: it affects `pip` (a transitive
 > dev-tool dependency, never run at app runtime), and the fix `pip 26.1.2` is
