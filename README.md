@@ -118,7 +118,7 @@ uv run pytest            # tests + coverage (fails under 90%)
 uv run ruff check .      # lint
 uv run ruff format .     # format
 uv run mypy src          # type-check (strict)
-uv run pip-audit --ignore-vuln PYSEC-2026-196  # dependency vulnerability scan*
+uv run pip-audit         # dependency vulnerability scan
 uv run detect-secrets-hook --baseline .secrets.baseline $(git ls-files -- ':!uv.lock')  # secret scan
 ```
 
@@ -146,11 +146,6 @@ src/todoist_assistant/
 - **Secret scanning** (`detect-secrets`) runs in pre-commit and CI, blocking any
   commit that introduces a credential. Known false-positives (template
   placeholders, fake test keys) are allowlisted in `.secrets.baseline`.
-
-> \* `PYSEC-2026-196` is temporarily ignored: it affects `pip` (a transitive
-> dev-tool dependency, never run at app runtime), and the fix `pip 26.1.2` is
-> held back by the 14-day cooldown until ~2026-06-14. After that, drop the
-> `--ignore-vuln` flag and run `uv lock --upgrade-package pip`.
 
 ## License
 
