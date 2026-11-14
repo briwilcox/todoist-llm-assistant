@@ -1,6 +1,9 @@
 # Config files with sensitive information
 todoist-config.ini
 config.ini
+.env.*
+*.pem
+*.key
 
 # Python artifacts
 __pycache__/
@@ -35,6 +38,14 @@ ENV/
 .vscode/
 *.swp
 *.swo
+
+# Test / coverage artifacts
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 
 # OS specific files
 .DS_Store
