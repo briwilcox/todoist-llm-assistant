@@ -1,0 +1,6 @@
+# Matches reviewed for the public-push personal-data guard. Each line is a regular
+# expression searched against the whole line that holds a match.
+# Todoist's "due date" field, in code, docstrings and tests.
+due[ _]?date
+# The author's name in the package metadata; LICENSE has named the author since 2023.
+^authors = .*Brian Wilcox
