@@ -6,7 +6,7 @@ heavily unit-tested layer of the app.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from datetime import date, datetime
 
 from .types import TaskLike
@@ -73,9 +73,9 @@ def select_tasks(
     return selected
 
 
-def window(tasks: list[TaskLike], *, offset: int, limit: int) -> list[TaskLike]:
+def window[T](tasks: Sequence[T], *, offset: int, limit: int) -> list[T]:
     """Return a slice of ``tasks`` starting at ``offset`` of size ``limit``."""
-    return tasks[offset : offset + limit]
+    return list(tasks[offset : offset + limit])
 
 
 def _due_sort_key(task: TaskLike) -> date:

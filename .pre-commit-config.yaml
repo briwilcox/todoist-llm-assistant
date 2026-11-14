@@ -1,24 +1,33 @@
-# Run with: uv run pre-commit run --all-files
+# pre-commit is not a project dependency; install it yourself, then run:
+#   pre-commit install            # run the hooks on every commit
+#   pre-commit run --all-files    # run them once over the tree
+#
+# Every hook is local and runs through `uv run`, so it uses the exact versions pinned
+# in uv.lock (the same ones CI runs) and pre-commit downloads no hook code of its own.
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.13
+  - repo: local
     hooks:
-      - id: ruff
-        args: [--fix]
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --locked ruff check --force-exclude
+        language: system
+        types_or: [python, pyi]
       - id: ruff-format
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.1.0
-    hooks:
+        name: ruff format --check
+        entry: uv run --locked ruff format --check --force-exclude
+        language: system
+        types_or: [python, pyi]
       - id: mypy
-        additional_dependencies: [pydantic]
-        args: [--strict]
-        files: ^src/
-  - repo: https://github.com/Yelp/detect-secrets
-    rev: v1.5.0
-    hooks:
-      # Blocks commits that introduce a new secret. Known false-positives
-      # (template placeholders, fake test keys) are allowlisted in
-      # .secrets.baseline. The lockfile's SHA-256 hashes are not secrets.
+        name: mypy (strict, src and tests)
+        entry: uv run --locked mypy
+        language: system
+        types: [python]
+        pass_filenames: false
       - id: detect-secrets
-        args: ['--baseline', '.secrets.baseline']
+        # Blocks commits that introduce a new secret. Known false positives
+        # (template placeholders, fake test keys) are allowlisted in
+        # .secrets.baseline. The lockfile's SHA-256 hashes are not secrets.
+        name: detect-secrets
+        entry: uv run --locked detect-secrets-hook --baseline .secrets.baseline
+        language: system
         exclude: '^uv\.lock$'

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from .config import Config
-from .models import resolve_model
+from .models import DEFAULT_EFFORT, resolve_model
 from .suggestion_engine import Suggestion, SuggestionEngine
 from .task_filter import select_tasks, window
 from .todoist_client import TodoistClient
@@ -20,20 +20,24 @@ from .types import Message, TaskLike
 
 BATCH_SIZE = 7
 
-# Interactive single-key shortcuts -> model id.
+# Interactive single-key shortcuts -> model id. The menu text is built from this
+# mapping so the two cannot drift apart.
 _MODEL_KEYS = {
-    "m": "gpt-5.4-mini",
-    "g": "gpt-5.5",
-    "o": "claude-opus-4-8",
-    "s": "claude-sonnet-4-6",
+    "m": "gpt-6-luna",
+    "g": "gpt-6-astra",
+    "o": "claude-opus-5-5",
+    "s": "claude-sonnet-5-5",
 }
 
+_KEY_LIST = "/".join(_MODEL_KEYS)
 _MENU = (
     "\nChoose an option:\n"
     "  y  Accept and update task\n"
     "  f  Provide feedback (same model)\n"
-    "  m/g/o/s  Switch model (gpt-5.4-mini / gpt-5.5 / claude-opus-4-8 / claude-sonnet-4-6)\n"
-    "  fm/fg/fo/fs  Feedback AND switch model\n"
+    f"  {_KEY_LIST}  Switch model ("
+    + ", ".join(f"{key} = {model}" for key, model in _MODEL_KEYS.items())
+    + ")\n"
+    f"  {'/'.join('f' + key for key in _MODEL_KEYS)}  Feedback AND switch model\n"
     "  n  Skip this task\n"
     "Enter your choice: "
 )
@@ -48,7 +52,7 @@ class RunOptions:
     model: str | None = None
     max_tokens: int | None = None
     temperature: float = 0.7
-    reasoning_effort: str = "medium"
+    reasoning_effort: str = DEFAULT_EFFORT
     enable_fallback: bool = False
     no_update: bool = False
 

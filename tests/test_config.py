@@ -29,33 +29,33 @@ def test_loads_all_sections(tmp_path: Path) -> None:
         api_key = an-key
 
         [models]
-        preferred_model = gpt-5.5
+        preferred_model = gpt-6-astra
 
         [project_models]
-        2203306141 = claude-opus-4-8
+        2203306141 = claude-opus-5-5
         """,
     )
     cfg = load_config(path, env={})
     assert cfg.todoist_api_key == "td-key"
     assert cfg.openai_api_key == "oa-key"
     assert cfg.anthropic_api_key == "an-key"
-    assert cfg.preferred_model == "gpt-5.5"
-    assert cfg.project_models == {"2203306141": "claude-opus-4-8"}
+    assert cfg.preferred_model == "gpt-6-astra"
+    assert cfg.project_models == {"2203306141": "claude-opus-5-5"}
 
 
 def test_preferred_model_defaults_when_absent(tmp_path: Path) -> None:
     path = write_ini(tmp_path, "[todoist]\napi_key = x\n")
     cfg = load_config(path, env={})
-    assert cfg.preferred_model == DEFAULT_MODEL == "gpt-5.4-mini"
+    assert cfg.preferred_model == DEFAULT_MODEL == "gpt-6-luna"
 
 
 def test_preferred_model_backward_compat_under_openai(tmp_path: Path) -> None:
     path = write_ini(
         tmp_path,
-        "[todoist]\napi_key = x\n[openai]\napi_key = y\npreferred_model = gpt-5.4\n",
+        "[todoist]\napi_key = x\n[openai]\napi_key = y\npreferred_model = gpt-6.1-sol\n",
     )
     cfg = load_config(path, env={})
-    assert cfg.preferred_model == "gpt-5.4"
+    assert cfg.preferred_model == "gpt-6.1-sol"
 
 
 def test_env_overrides_file_keys(tmp_path: Path) -> None:
@@ -88,3 +88,14 @@ def test_missing_todoist_key_raises(tmp_path: Path) -> None:
     path = write_ini(tmp_path, "[openai]\napi_key = y\n")
     with pytest.raises(ConfigError, match="Todoist"):
         load_config(path, env={})
+
+
+def test_project_ids_keep_their_case(tmp_path: Path) -> None:
+    # Todoist API v1 project ids are mixed-case strings; matching is exact, so the
+    # mapping must not lowercase them the way configparser does by default.
+    path = write_ini(
+        tmp_path,
+        "[todoist]\napi_key = x\n[project_models]\n6Xc7mPq2Wv9RhJ4f = claude-opus-5-5\n",
+    )
+    cfg = load_config(path, env={})
+    assert cfg.project_models == {"6Xc7mPq2Wv9RhJ4f": "claude-opus-5-5"}

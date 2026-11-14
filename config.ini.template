@@ -10,16 +10,17 @@ api_key = YOUR_ANTHROPIC_API_KEY_HERE
 [models]
 # Default model used when no --model flag or project override applies.
 # Registered models (see `todoist-assistant --list-models`):
-#   OpenAI:    gpt-5.5 (reasoning), gpt-5.4, gpt-5.4-mini, gpt-5.4-nano
-#   Anthropic: claude-opus-4-8, claude-sonnet-4-6, claude-haiku-4-5
-preferred_model = gpt-5.4-mini
+#   OpenAI:    gpt-6-luna, gpt-6.1-terra, gpt-6.1-sol, gpt-6-astra
+#   Anthropic: claude-haiku-5-5, claude-sonnet-5-5, claude-opus-5-5, claude-fable-5-2
+preferred_model = gpt-6-luna
 
 [project_models]
 # Optional: pick a model per Todoist project using project_id = model_name
-# Find a project ID in its URL: todoist.com/app/project/<PROJECT_ID>
+# Use the project id the Todoist API returns (it also appears in the project's URL).
+# IDs are case-sensitive; copy them exactly.
 # Example:
-# 2203306141 = gpt-5.5
-# 2203306142 = claude-opus-4-8
+# 6Xc7mPq2Wv9RhJ4f = gpt-6-astra
+# 6Xc7mPq2Wv9RhJ4g = claude-opus-5-5
 # Projects not listed here fall back to preferred_model.
 
 # API keys may also be supplied via environment variables instead of this file:

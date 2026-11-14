@@ -6,22 +6,22 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from .config import DEFAULT_MODEL
-from .models import Provider, get_model_spec
-from .providers.base import CompletionRequest, ProviderError, SuggestionProvider
+from .models import DEFAULT_EFFORT, Provider, get_model_spec
+from .providers.base import (
+    CompletionRequest,
+    ProviderError,
+    SuggestionProvider,
+    missing_key_message,
+)
 from .types import Message
 
-_REASONING_SYSTEM = (
+# Every registered model reasons before answering, so one system prompt serves all.
+_SYSTEM = (
     "You are a task planning assistant that uses step-by-step reasoning to provide "
     "actionable suggestions. Your goal is to help users accomplish their tasks "
     "effectively. Adapt your response length to the task's complexity - be concise for "
     "simple tasks but provide more detail for complex ones. Focus on being specific and "
     "actionable."
-)
-
-_STANDARD_SYSTEM = (
-    "You are a task planning assistant. Your goal is to help users accomplish their tasks "
-    "effectively by providing actionable suggestions. Be concise for simple tasks and more "
-    "detailed for complex ones."
 )
 
 
@@ -82,21 +82,22 @@ class SuggestionEngine:
         model: str,
         max_tokens: int | None = None,
         temperature: float = 0.7,
-        reasoning_effort: str = "medium",
+        reasoning_effort: str = DEFAULT_EFFORT,
         enable_fallback: bool = False,
         conversation: list[Message] | None = None,
     ) -> Suggestion:
         spec = get_model_spec(model)
-        system = _REASONING_SYSTEM if spec.is_reasoning else _STANDARD_SYSTEM
+        effort_error = spec.effort_error(reasoning_effort)
+        if effort_error is not None:
+            return Suggestion(model=model, text="", error=effort_error)
         messages: list[Message] = (
             list(conversation)
             if conversation
             else [{"role": "user", "content": _initial_user_prompt(task_content)}]
         )
 
-        provider = self._providers[spec.provider]
         request = CompletionRequest(
-            system=system,
+            system=_SYSTEM,
             messages=messages,
             max_tokens=max_tokens,
             temperature=temperature,
@@ -104,7 +105,7 @@ class SuggestionEngine:
         )
 
         try:
-            text = provider.complete(spec, request)
+            text = self._provider_for(model, spec.provider).complete(spec, request)
         except ProviderError as exc:
             if self._can_fallback(model, enable_fallback):
                 return self._fallback(
@@ -118,6 +119,13 @@ class SuggestionEngine:
             )
 
         return Suggestion(model=model, text=text)
+
+    def _provider_for(self, model: str, provider: Provider) -> SuggestionProvider:
+        """The configured provider for ``model``, or a ProviderError naming the missing key."""
+        try:
+            return self._providers[provider]
+        except KeyError:
+            raise ProviderError(missing_key_message(provider, model)) from None
 
     def _can_fallback(self, model: str, enable_fallback: bool) -> bool:
         return enable_fallback and model != self._fallback_model

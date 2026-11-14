@@ -5,12 +5,20 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Protocol
 
-from ..models import ModelSpec
+from ..models import DEFAULT_EFFORT, ModelSpec, Provider
 from ..types import Message
 
 
 class ProviderError(Exception):
     """Raised when an underlying provider SDK call fails."""
+
+
+def missing_key_message(provider: Provider, model: str) -> str:
+    """The error shown when ``model`` needs a provider whose API key is not configured."""
+    return (
+        f"No API key configured for the '{provider.value}' provider, "
+        f"which model '{model}' requires."
+    )
 
 
 @dataclass
@@ -26,7 +34,7 @@ class CompletionRequest:
     messages: list[Message] = field(default_factory=list)
     max_tokens: int | None = None
     temperature: float = 0.7
-    reasoning_effort: str = "medium"
+    reasoning_effort: str = DEFAULT_EFFORT
 
 
 class SuggestionProvider(Protocol):

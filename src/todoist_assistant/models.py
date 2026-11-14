@@ -1,13 +1,19 @@
-"""Registry of supported AI models and their API capabilities.
+"""Registry of supported AI models and how each one must be called.
 
-This is the single source of truth for which models exist and how each one must
-be called. It replaces the original ``model.startswith('o')`` heuristic (which
-broke when the o-series was retired) with explicit per-model capability flags,
-and is consumed by the CLI (choices/validation), provider routing, and the
-suggestion engine.
+This is the single source of truth for which models exist. It is consumed by the CLI
+(choices and validation), provider routing, and the suggestion engine. To add a model,
+add one :class:`ModelSpec` to ``_SPECS``.
 
-To add a model, add one :class:`ModelSpec` to ``_SPECS`` — nothing else needs to
-change.
+Every current OpenAI and Anthropic model reasons before it answers, and the effort
+parameter is the control for how much. What still differs by model is which effort
+levels it accepts and whether sampling parameters such as ``temperature`` are allowed:
+
+* OpenAI GPT-6 family (developers.openai.com/api/docs/models): ``gpt-6-luna`` and
+  ``gpt-6.1-terra`` accept effort ``none``, and only at ``none`` do they take
+  ``temperature``. ``gpt-6-astra`` and ``gpt-6.1-sol`` reject ``none``.
+* Anthropic Claude 5 family (platform.claude.com/docs/en/about-claude/models/overview):
+  all four accept ``low`` through ``max``. API version 2026-10-21 removed
+  ``temperature``, ``top_p`` and ``top_k`` for every model.
 """
 
 from __future__ import annotations
@@ -25,60 +31,63 @@ class UnknownModelError(Exception):
     """Raised when a model id is not in the registry."""
 
 
+# Every effort level any registered model accepts, in the order the CLI offers them.
+EFFORT_LEVELS: tuple[str, ...] = ("none", "low", "medium", "high", "xhigh", "max")
+DEFAULT_EFFORT = "medium"
+
+_LOW_TO_MAX: tuple[str, ...] = ("low", "medium", "high", "xhigh", "max")
+_NONE_TO_MAX: tuple[str, ...] = ("none", *_LOW_TO_MAX)
+
+
 @dataclass(frozen=True)
 class ModelSpec:
     """How to call a particular model.
 
     Attributes:
-        id: The canonical model id passed to the provider's API.
+        id: The model id passed to the provider's API.
         provider: Which provider serves the model.
-        is_reasoning: Whether this is a reasoning model.
-        supports_temperature: Whether the ``temperature`` parameter is accepted.
-        supports_reasoning_effort: Whether a ``reasoning_effort`` parameter applies.
-        token_param: The request key for the output-token budget
-            (``max_tokens`` vs ``max_completion_tokens``).
+        effort_levels: The reasoning effort levels the model accepts.
+        sampling_effort: The one effort level at which the model accepts
+            ``temperature``, or None if it never does.
     """
 
     id: str
     provider: Provider
-    is_reasoning: bool = False
-    supports_temperature: bool = True
-    supports_reasoning_effort: bool = False
-    token_param: str = "max_tokens"
+    effort_levels: tuple[str, ...] = _LOW_TO_MAX
+    sampling_effort: str | None = None
+
+    def effort_error(self, effort: str) -> str | None:
+        """A user-facing message if ``effort`` is not accepted, else None."""
+        if effort in self.effort_levels:
+            return None
+        return (
+            f"Model '{self.id}' does not support reasoning effort '{effort}' "
+            f"(supported: {', '.join(self.effort_levels)})."
+        )
+
+    def accepts_temperature(self, effort: str) -> bool:
+        """Whether a request at ``effort`` may include ``temperature``."""
+        return self.sampling_effort is not None and effort == self.sampling_effort
 
 
 _SPECS: tuple[ModelSpec, ...] = (
-    # OpenAI GPT-5 family (Chat Completions; max_completion_tokens is the modern key).
-    ModelSpec(
-        "gpt-5.5",
-        Provider.OPENAI,
-        is_reasoning=True,
-        supports_temperature=False,
-        supports_reasoning_effort=True,
-        token_param="max_completion_tokens",
-    ),
-    ModelSpec("gpt-5.4", Provider.OPENAI, token_param="max_completion_tokens"),
-    ModelSpec("gpt-5.4-mini", Provider.OPENAI, token_param="max_completion_tokens"),
-    ModelSpec("gpt-5.4-nano", Provider.OPENAI, token_param="max_completion_tokens"),
-    # Anthropic Claude 4.x family (Messages API; max_tokens is required).
-    ModelSpec("claude-opus-4-8", Provider.ANTHROPIC),
-    ModelSpec("claude-sonnet-4-6", Provider.ANTHROPIC),
-    ModelSpec("claude-haiku-4-5-20251001", Provider.ANTHROPIC),
+    ModelSpec("gpt-6-astra", Provider.OPENAI),
+    ModelSpec("gpt-6.1-sol", Provider.OPENAI),
+    ModelSpec("gpt-6.1-terra", Provider.OPENAI, _NONE_TO_MAX, sampling_effort="none"),
+    ModelSpec("gpt-6-luna", Provider.OPENAI, _NONE_TO_MAX, sampling_effort="none"),
+    ModelSpec("claude-fable-5-2", Provider.ANTHROPIC),
+    ModelSpec("claude-opus-5-5", Provider.ANTHROPIC),
+    ModelSpec("claude-sonnet-5-5", Provider.ANTHROPIC),
+    ModelSpec("claude-haiku-5-5", Provider.ANTHROPIC),
 )
 
 _REGISTRY: dict[str, ModelSpec] = {spec.id: spec for spec in _SPECS}
 
-# Friendly aliases users can type that map to a canonical model id.
-_ALIASES: dict[str, str] = {
-    "claude-haiku-4-5": "claude-haiku-4-5-20251001",
-}
-
 
 def get_model_spec(model: str) -> ModelSpec:
-    """Resolve a model id (or alias) to its :class:`ModelSpec`."""
-    canonical = _ALIASES.get(model, model)
+    """Resolve a model id to its :class:`ModelSpec`."""
     try:
-        return _REGISTRY[canonical]
+        return _REGISTRY[model]
     except KeyError:
         raise UnknownModelError(
             f"Unknown model {model!r}. Known models: {', '.join(available_models())}"
@@ -86,13 +95,13 @@ def get_model_spec(model: str) -> ModelSpec:
 
 
 def is_registered(model: str) -> bool:
-    """True if ``model`` is a known model id or alias."""
-    return model in _ALIASES or model in _REGISTRY
+    """True if ``model`` is a known model id."""
+    return model in _REGISTRY
 
 
 def available_models() -> list[str]:
-    """Selectable model names (canonical ids plus friendly aliases), sorted."""
-    return sorted([*_REGISTRY.keys(), *_ALIASES.keys()])
+    """Selectable model ids, sorted."""
+    return sorted(_REGISTRY)
 
 
 def resolve_model(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date
 
 from todoist_assistant.app import App, RunOptions
@@ -20,33 +21,39 @@ class ScriptedInput:
 
     def __init__(self, answers: list[str]) -> None:
         self._answers = list(answers)
+        self.prompts: list[str] = []
 
-    def __call__(self, _prompt: str = "") -> str:
+    def __call__(self, prompt: str = "") -> str:
+        self.prompts.append(prompt)
         return self._answers.pop(0)
 
 
 def build_app(
-    task_pages: list[list[object]],
+    task_pages: Sequence[Sequence[object]],
     *,
     config: Config | None = None,
     openai: FakeProvider | None = None,
     anthropic: FakeProvider | None = None,
     input_answers: list[str] | None = None,
-    project_pages: list[list[object]] | None = None,
+    input_fn: ScriptedInput | None = None,
+    project_pages: Sequence[Sequence[object]] | None = None,
 ) -> tuple[App, FakeTodoistAPI, FakeProvider, FakeProvider, list[str]]:
-    api = FakeTodoistAPI(task_pages=task_pages, project_pages=project_pages or [])
+    api = FakeTodoistAPI(
+        task_pages=[list(p) for p in task_pages],
+        project_pages=[list(p) for p in project_pages or []],
+    )
     todoist = TodoistClient(api)
     oa = openai or FakeProvider(default="Step one.")
     an = anthropic or FakeProvider(default="Claude step.")
     engine = SuggestionEngine({Provider.OPENAI: oa, Provider.ANTHROPIC: an})
-    cfg = config or Config(todoist_api_key="x", preferred_model="gpt-5.4-mini")
+    cfg = config or Config(todoist_api_key="x", preferred_model="gpt-6-luna")
     out: list[str] = []
     app = App(
         todoist,
         engine,
         cfg,
         today=TODAY,
-        input_fn=ScriptedInput(input_answers or []),
+        input_fn=input_fn or ScriptedInput(input_answers or []),
         output_fn=out.append,
     )
     return app, api, oa, an, out
@@ -56,7 +63,7 @@ def test_batch_generates_and_updates_due_tasks() -> None:
     pages = [[make_task(id="a", content="Pay bill", due=date(2026, 6, 1))]]
     app, api, _, _, _ = build_app(pages)
     app.run(RunOptions())
-    assert api.updates == [{"task_id": "a", "description": "GPT-5.4-MINI SUGGESTION:\nStep one."}]
+    assert api.updates == [{"task_id": "a", "description": "GPT-6-LUNA SUGGESTION:\nStep one."}]
 
 
 def test_batch_skips_tasks_that_already_have_suggestions() -> None:
@@ -90,22 +97,22 @@ def test_no_matching_tasks_emits_guidance() -> None:
 def test_cli_model_overrides_and_routes_to_anthropic() -> None:
     pages = [[make_task(id="a", due=date(2026, 6, 1))]]
     app, api, oa, an, _ = build_app(pages)
-    app.run(RunOptions(model="claude-opus-4-8"))
+    app.run(RunOptions(model="claude-opus-5-5"))
     assert len(an.requests) == 1
     assert len(oa.requests) == 0
-    assert api.updates[0]["description"].startswith("CLAUDE-OPUS-4-8 SUGGESTION:")
+    assert api.updates[0]["description"].startswith("CLAUDE-OPUS-5-5 SUGGESTION:")
 
 
 def test_project_specific_model_is_used() -> None:
     cfg = Config(
         todoist_api_key="x",
-        preferred_model="gpt-5.4-mini",
-        project_models={"special": "gpt-5.5"},
+        preferred_model="gpt-6-luna",
+        project_models={"special": "gpt-6-astra"},
     )
     pages = [[make_task(id="a", project_id="special", due=date(2026, 6, 1))]]
     app, _, oa, _, _ = build_app(pages, config=cfg)
     app.run(RunOptions())
-    assert oa.requests[0][0].id == "gpt-5.5"
+    assert oa.requests[0][0].id == "gpt-6-astra"
 
 
 def test_update_all_processes_every_match_without_paging() -> None:
@@ -181,7 +188,20 @@ def test_interactive_switch_model_then_accept() -> None:
     )
     app.run(RunOptions(interactive=True))
     assert len(used_an.requests) == 1
-    assert api.updates[0]["description"].startswith("CLAUDE-OPUS-4-8 SUGGESTION:")
+    assert api.updates[0]["description"].startswith("CLAUDE-OPUS-5-5 SUGGESTION:")
+
+
+def test_interactive_menu_names_the_models_its_keys_switch_to() -> None:
+    pages = [[make_task(id="a", due=date(2026, 6, 1))]]
+    scripted = ScriptedInput(["n", "q"])
+    app, _, _, _, _ = build_app(pages, input_fn=scripted)
+    app.run(RunOptions(interactive=True))
+    menu = scripted.prompts[0].splitlines()
+    assert (
+        "  m/g/o/s  Switch model (m = gpt-6-luna, g = gpt-6-astra, "
+        "o = claude-opus-5-5, s = claude-sonnet-5-5)"
+    ) in menu
+    assert "  fm/fg/fo/fs  Feedback AND switch model" in menu
 
 
 def test_interactive_paging_advances_offset() -> None:
@@ -217,7 +237,7 @@ def test_interactive_feedback_plus_switch_model() -> None:
     app.run(RunOptions(interactive=True))
     assert len(used_an.requests) == 1
     assert {"role": "user", "content": "tighten it"} in used_an.requests[0][1].messages
-    assert api.updates[0]["description"].startswith("CLAUDE-OPUS-4-8 SUGGESTION:")
+    assert api.updates[0]["description"].startswith("CLAUDE-OPUS-5-5 SUGGESTION:")
 
 
 def test_interactive_invalid_choice_then_skip() -> None:

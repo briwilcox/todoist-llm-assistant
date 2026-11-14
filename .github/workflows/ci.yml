@@ -11,21 +11,27 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor from requires-python, plus each newer CPython release.
+        python-version: ["3.13", "3.14", "3.15"]
     steps:
       # Actions are pinned by commit SHA (not floating tags) for supply-chain safety.
       - name: Checkout
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
 
       - name: Install uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           enable-cache: true
-
-      - name: Sync (locked, no upgrades)
-        run: uv sync --locked
+          python-version: ${{ matrix.python-version }}
 
       - name: Verify lockfile is in sync
         run: uv lock --check
+
+      - name: Sync (locked, no upgrades)
+        run: uv sync --locked
 
       - name: Scan for secrets
         # Fails if any tracked file contains a secret not allowlisted in
@@ -39,15 +45,11 @@ jobs:
       - name: Format check
         run: uv run ruff format --check .
 
-      - name: Type check
-        run: uv run mypy src
+      - name: Type check (src and tests, strict)
+        run: uv run mypy
 
-      - name: Tests
+      - name: Tests (unit, SDK contract and smoke; fails under 95% coverage)
         run: uv run pytest
 
       - name: Audit dependencies
-        # PYSEC-2026-196 affects pip 26.1.1 (a transitive dev-tool dependency via
-        # pip-audit -> pip-api -> pip; never run at app runtime). The fix, pip 26.1.2,
-        # is held back by our own `exclude-newer = "14 days"` cooldown until ~2026-06-14.
-        # Remove this ignore and run `uv lock --upgrade-package pip` once it clears.
-        run: uv run pip-audit --ignore-vuln PYSEC-2026-196
+        run: uv run pip-audit

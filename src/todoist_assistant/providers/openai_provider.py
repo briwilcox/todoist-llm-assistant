@@ -11,25 +11,28 @@ from .base import CompletionRequest, ProviderError, SuggestionProvider
 class OpenAIProvider(SuggestionProvider):
     """Calls OpenAI via an injected ``openai.OpenAI``-compatible client.
 
-    Capability flags on the :class:`ModelSpec` decide the request shape:
-    reasoning models omit ``temperature`` and add ``reasoning_effort``; the
-    output-token budget uses the model's ``token_param`` key.
+    Every registered OpenAI model is a reasoning model: instructions go in a
+    ``developer`` message, the effort is always sent, the output budget is
+    ``max_completion_tokens`` (it covers reasoning tokens too), and ``temperature``
+    is sent only at the one effort level where the model accepts it.
     """
 
     def __init__(self, client: Any) -> None:
         self._client = client
 
     def complete(self, spec: ModelSpec, request: CompletionRequest) -> str:
-        messages: list[dict[str, str]] = [{"role": "system", "content": request.system}]
+        messages: list[dict[str, str]] = [{"role": "developer", "content": request.system}]
         messages.extend(request.messages)
 
-        params: dict[str, Any] = {"model": spec.id, "messages": messages}
+        params: dict[str, Any] = {
+            "model": spec.id,
+            "messages": messages,
+            "reasoning_effort": request.reasoning_effort,
+        }
         if request.max_tokens is not None:
-            params[spec.token_param] = request.max_tokens
-        if spec.supports_temperature:
+            params["max_completion_tokens"] = request.max_tokens
+        if spec.accepts_temperature(request.reasoning_effort):
             params["temperature"] = request.temperature
-        if spec.supports_reasoning_effort:
-            params["reasoning_effort"] = request.reasoning_effort
 
         try:
             response = self._client.chat.completions.create(**params)

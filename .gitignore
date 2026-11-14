@@ -1,6 +1,9 @@
 # Config files with sensitive information
 todoist-config.ini
 config.ini
+.env.*
+*.pem
+*.key
 
 # Python artifacts
 __pycache__/

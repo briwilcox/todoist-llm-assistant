@@ -15,17 +15,29 @@ from typing import Protocol, runtime_checkable
 Message = dict[str, str]
 
 
+# Members are read-only properties: the app only reads tasks, and read-only members let
+# any object with matching attributes (the SDK's dataclasses, test doubles) satisfy them.
+
+
 @runtime_checkable
 class DueLike(Protocol):
-    date: date | datetime
-    string: str
-    is_recurring: bool
+    @property
+    def date(self) -> date | datetime: ...
+    @property
+    def string(self) -> str: ...
+    @property
+    def is_recurring(self) -> bool: ...
 
 
 @runtime_checkable
 class TaskLike(Protocol):
-    id: str
-    content: str
-    description: str
-    project_id: str
-    due: DueLike | None
+    @property
+    def id(self) -> str: ...
+    @property
+    def content(self) -> str: ...
+    @property
+    def description(self) -> str: ...
+    @property
+    def project_id(self) -> str: ...
+    @property
+    def due(self) -> DueLike | None: ...

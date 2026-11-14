@@ -106,8 +106,14 @@ class _AnthropicTextBlock:
 
 
 @dataclass
+class _AnthropicThinkingBlock:
+    thinking: str = ""
+    type: str = "thinking"
+
+
+@dataclass
 class _AnthropicResponse:
-    content: list[_AnthropicTextBlock]
+    content: list[_AnthropicTextBlock | _AnthropicThinkingBlock]
 
 
 class _AnthropicMessages:
@@ -118,16 +124,27 @@ class _AnthropicMessages:
         self._owner.calls.append(kwargs)
         if self._owner.error is not None:
             raise self._owner.error
-        blocks = [_AnthropicTextBlock(t) for t in self._owner.texts]
+        blocks: list[_AnthropicTextBlock | _AnthropicThinkingBlock] = [
+            _AnthropicTextBlock(t) for t in self._owner.texts
+        ]
+        if self._owner.thinking_first:
+            blocks.insert(0, _AnthropicThinkingBlock())
         return _AnthropicResponse(content=blocks)
 
 
 class FakeAnthropicClient:
     """Mimics ``anthropic.Anthropic`` enough to exercise AnthropicProvider."""
 
-    def __init__(self, texts: list[str] | None = None, error: Exception | None = None) -> None:
+    def __init__(
+        self,
+        texts: list[str] | None = None,
+        error: Exception | None = None,
+        *,
+        thinking_first: bool = False,
+    ) -> None:
         self.texts = ["Do the thing."] if texts is None else texts
         self.error = error
+        self.thinking_first = thinking_first
         self.calls: list[dict[str, Any]] = []
         self.messages = _AnthropicMessages(self)
 

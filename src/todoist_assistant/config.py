@@ -14,7 +14,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-DEFAULT_MODEL = "gpt-5.4-mini"
+DEFAULT_MODEL = "gpt-6-luna"
 
 _ENV_KEYS = {
     "todoist": "TODOIST_API_KEY",
@@ -54,7 +54,7 @@ def load_config(
     env = os.environ if env is None else env
     path = Path("config.ini") if path is None else Path(path)
 
-    parser = configparser.ConfigParser(interpolation=None)
+    parser = _CaseKeepingParser(interpolation=None)
     if path.exists():
         parser.read(path)
 
@@ -82,6 +82,17 @@ def load_config(
         preferred_model=preferred_model,
         project_models=project_models,
     )
+
+
+class _CaseKeepingParser(configparser.ConfigParser):
+    """Keeps option names as written.
+
+    Todoist API v1 project ids are mixed-case strings, and ``[project_models]`` keys
+    must match them exactly; ConfigParser lowercases option names by default.
+    """
+
+    def optionxform(self, optionstr: str) -> str:
+        return optionstr
 
 
 def _resolve(
