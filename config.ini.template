@@ -3,11 +3,24 @@ api_key = YOUR_TODOIST_API_KEY_HERE
 
 [openai]
 api_key = YOUR_OPENAI_API_KEY_HERE
-preferred_model = gpt-4o-mini
+
+[anthropic]
+api_key = YOUR_ANTHROPIC_API_KEY_HERE
+
+[models]
+# Default model used when no --model flag or project override applies.
+# Registered models (see `todoist-assistant --list-models`):
+#   OpenAI:    gpt-5.5 (reasoning), gpt-5.4, gpt-5.4-mini, gpt-5.4-nano
+#   Anthropic: claude-opus-4-8, claude-sonnet-4-6, claude-haiku-4-5
+preferred_model = gpt-5.4-mini
 
 [project_models]
-# Specify models for specific projects using project_id = model_name
+# Optional: pick a model per Todoist project using project_id = model_name
+# Find a project ID in its URL: todoist.com/app/project/<PROJECT_ID>
 # Example:
-# 2023456789 = o1
-# 2023456790 = gpt-4o
-# The default model from [openai] section will be used for unlisted projects 
+# 2203306141 = gpt-5.5
+# 2203306142 = claude-opus-4-8
+# Projects not listed here fall back to preferred_model.
+
+# API keys may also be supplied via environment variables instead of this file:
+#   TODOIST_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY

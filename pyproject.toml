@@ -1,0 +1,67 @@
+[project]
+name = "todoist-assistant"
+version = "0.2.0"
+description = "AI assistant that writes actionable suggestions into your Todoist tasks, powered by OpenAI and Anthropic."
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [{ name = "Brian Wilcox" }]
+dependencies = [
+    "openai==2.37.0",
+    "anthropic==0.103.1",
+    "todoist-api-python==4.0.0",
+]
+
+[project.scripts]
+todoist-assistant = "todoist_assistant.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/briwilcox/todoist-llm-assistant"
+
+[build-system]
+requires = ["hatchling==1.29.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/todoist_assistant"]
+
+[dependency-groups]
+dev = [
+    "pytest==9.0.3",
+    "pytest-cov==7.1.0",
+    "ruff==0.15.13",
+    "mypy==2.1.0",
+    "pip-audit==2.10.0",
+]
+
+[tool.uv]
+# Supply-chain hardening: refuse any distribution published within a rolling
+# 14-day window, so a freshly-uploaded malicious version is never resolved.
+# Combined with the committed uv.lock (exact pins + hashes) this mitigates the
+# 2026 LiteLLM/TeamPCP-style attacks.
+exclude-newer = "14 days"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "PTH", "RUF"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+files = ["src"]
+
+[[tool.mypy.overrides]]
+module = ["todoist_api_python.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=todoist_assistant --cov-report=term-missing --cov-fail-under=95"
+
+[tool.coverage.run]
+branch = true
+source = ["todoist_assistant"]
