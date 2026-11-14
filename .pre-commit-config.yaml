@@ -13,3 +13,12 @@ repos:
         additional_dependencies: [pydantic]
         args: [--strict]
         files: ^src/
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      # Blocks commits that introduce a new secret. Known false-positives
+      # (template placeholders, fake test keys) are allowlisted in
+      # .secrets.baseline. The lockfile's SHA-256 hashes are not secrets.
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: '^uv\.lock$'

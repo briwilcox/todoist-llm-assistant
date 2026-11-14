@@ -27,6 +27,12 @@ jobs:
       - name: Verify lockfile is in sync
         run: uv lock --check
 
+      - name: Scan for secrets
+        # Fails if any tracked file contains a secret not allowlisted in
+        # .secrets.baseline. uv.lock is excluded (its entries are dependency
+        # integrity hashes, not secrets).
+        run: uv run detect-secrets-hook --baseline .secrets.baseline $(git ls-files -- ':!uv.lock')
+
       - name: Lint
         run: uv run ruff check .
 
